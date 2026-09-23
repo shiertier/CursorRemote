@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import type { CDPBridge } from './cdp-bridge.js';
 import type { ServerConfig } from './types.js';
-import { type CanvasEntry, loadCanvasCatalog } from './canvas-catalog.js';
+import { type CanvasEntry, canvasRootDir, loadCanvasCatalog } from './canvas-catalog.js';
 import {
   CANVAS_PROBE_SOURCE,
   matchDetectedCanvas,
@@ -23,6 +23,8 @@ export interface CanvasSnapshot {
   canvases: CanvasSummary[];
   activeId: string | null;
   detectedName: string | null;
+  /** `prebuilt` when the open preview fell back to the shipped demo bundle. */
+  previewSource: 'live' | 'prebuilt' | null;
 }
 
 interface CacheEntry {
@@ -40,6 +42,7 @@ export class CanvasService extends EventEmitter {
   private probing = false;
   private probeWarned = false;
   private prebuiltWarned = false;
+  private previewSource: 'live' | 'prebuilt' | null = null;
   private lastPublished = '';
   private readonly cache = new Map<string, CacheEntry>();
   private readonly inflight = new Map<string, Promise<string>>();
@@ -79,6 +82,7 @@ export class CanvasService extends EventEmitter {
       })),
       activeId: this.activeId,
       detectedName: this.detectedName,
+      previewSource: this.previewSource,
     };
   }
 
@@ -98,7 +102,10 @@ export class CanvasService extends EventEmitter {
     assertCanvasSourceSize(entry.size);
     const key = `${entry.mtimeMs}:${entry.size}:${entry.absolutePath}`;
     const cached = this.cache.get(id);
-    if (cached && cached.key === key) return cached.code;
+    if (cached && cached.key === key) {
+      this.notePreview('live');
+      return cached.code;
+    }
 
     const flightKey = `${id}:${key}`;
     let pending = this.inflight.get(flightKey);
@@ -113,8 +120,9 @@ export class CanvasService extends EventEmitter {
 
   private async build(entry: CanvasEntry, key: string): Promise<string> {
     try {
-      const code = await bundleCanvas(entry.absolutePath);
+      const code = await bundleCanvas(entry.absolutePath, canvasRootDir(entry));
       this.remember(entry.id, key, code);
+      this.notePreview('live');
       return code;
     } catch (err) {
       const prebuilt = this.prebuiltFallback(entry);
@@ -124,10 +132,17 @@ export class CanvasService extends EventEmitter {
           const message = err instanceof Error ? err.message : String(err);
           console.warn(`[canvas] Live bundle failed for ${entry.fileName}; serving the prebuilt demo (${message})`);
         }
+        this.notePreview('prebuilt');
         return prebuilt;
       }
       throw err;
     }
+  }
+
+  private notePreview(source: 'live' | 'prebuilt'): void {
+    if (this.previewSource === source) return;
+    this.previewSource = source;
+    this.publish();
   }
 
   private prebuiltFallback(entry: CanvasEntry): string | null {

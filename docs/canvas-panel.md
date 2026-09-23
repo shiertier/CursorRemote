@@ -1,6 +1,6 @@
 # Canvas panel
 
-The web client has a right-hand panel for Cursor canvases (`.canvas.tsx` files). Chat, approvals, and Telegram are unchanged. The panel is closed until you open it or the relay detects a canvas tab.
+The web client has a right-hand panel for Cursor canvases (`.canvas.tsx` files). Chat, approvals, and Telegram are unchanged. The panel is closed until you open it. On a wide layout it also opens when the relay detects a canvas tab. Viewports at 767px and below do not auto-open; the Canvas button and the dropdown still work.
 
 ## How rendering works
 
@@ -10,11 +10,29 @@ This relay does not reimplement that SDK. For each selected file it:
 
 1. Resolves `cursor/canvas` to `@thisismydesign/cursor-canvas-web`.
 2. Bundles the file in-process with esbuild, together with React, Mantine, and Recharts.
-3. Serves an iframe document that calls `mountCanvas` from `@thisismydesign/cursor-canvas-web/runtime`.
+3. Serves a self-contained iframe document that calls `mountCanvas` from `@thisismydesign/cursor-canvas-web/runtime`. The script and Mantine styles are inlined into that document.
 
 The host passes `defaultColorScheme: "dark"` so the preview matches the CursorRemote UI. `useCanvasAction` stays a no-op on the web, which is the shim's own behavior.
 
-`npm run build` also writes a prebuilt copy of `canvases/demo.canvas.tsx` to `dist/client/prebuilt/`. The extension package can show that demo when the esbuild binary is not installed next to the bundled server. Any other canvas still needs a standalone `npm install` so esbuild and the peer dependencies resolve.
+`npm run build` also writes a prebuilt copy of `canvases/demo.canvas.tsx` to `dist/client/prebuilt/`. The extension package can show that demo when the esbuild binary is not installed next to the bundled server. The panel then shows the status `Prebuilt demo — live bundle failed`. Any other canvas still needs a standalone `npm install` so esbuild and the peer dependencies resolve.
+
+## Isolation
+
+The preview iframe is `sandbox="allow-scripts"` with no `allow-same-origin` and no `allow-top-navigation`. The document therefore has an opaque origin. It cannot read the parent DOM, the session cookie, or `window.parent` properties, and it cannot navigate the top window. The parent page does not accept `postMessage` from the frame.
+
+`/canvas/view/:id` is still a same-site navigation, so a `WEBAPP_PASSWORD` session cookie is sent on that request and missing sessions redirect to `/login`. The document inlines its script and CSS, and its `Content-Security-Policy` is `default-src 'none'` with inline scripts and styles only (`connect-src 'none'`). The opaque frame makes no further requests to the relay. `GET /canvas/bundle/:id` and `/canvas-assets/*` stay behind the same session check for direct fetches; the iframe does not use them.
+
+A blob URL created by the parent page would stay on the parent's origin, so the preview is not loaded that way.
+
+## Import allowlist
+
+esbuild resolves every import and keeps it only when the resolved file is one of:
+
+- the canvas entry, or another file whose real path stays inside that canvas's catalog root (a symlink that points outside the root is rejected)
+- `@thisismydesign/cursor-canvas-web` (the `cursor/canvas` shim)
+- an allowlisted npm package required by the host or the shim: React, React DOM, Mantine, Recharts, and the transitive dependencies declared by those packages
+
+A canvas file may import other files in its root, the shim, and `react/jsx-runtime` (esbuild's automatic JSX transform). It may not import Node builtins, absolute paths, or packages such as `react` itself. The generated host module is the one that imports React and `mountCanvas`. Attempts to read `../../.env` or a home-directory file fail the bundle.
 
 ## Open the panel
 
@@ -48,8 +66,8 @@ Tab markup differs across Cursor versions, so this probe is a hint. If nothing m
 | `POST /api/canvases/refresh` | Rescan disk |
 | `socket` `canvas:update` | Same payload, pushed when the catalog or detection changes |
 | `socket` `canvas:refresh` | Ask the server to rescan |
-| `GET /canvas/view/:id` | Iframe document |
-| `GET /canvas/bundle/:id` | Bundled script |
+| `GET /canvas/view/:id` | Opaque-origin iframe document (inlined script and CSS) |
+| `GET /canvas/bundle/:id` | Bundled script, same session check; the iframe does not request it |
 
 When `WEBAPP_PASSWORD` is set, these routes use the same session cookie or bearer token as the rest of the client.
 

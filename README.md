@@ -213,7 +213,7 @@ Ensure `data/license.key` exists before running `npm start` (no interactive prom
 
 ## Canvas panel
 
-The web client can show a Cursor canvas on the right, next to the chat. The panel is closed until you press **Canvas** or the relay notices a `*.canvas.tsx` editor tab.
+The web client can show a Cursor canvas on the right, next to the chat. The panel is closed until you press **Canvas**. On a wide layout it also opens when the relay notices a `*.canvas.tsx` editor tab. The preview runs in a sandboxed iframe that cannot reach the parent page.
 
 Canvases keep importing `cursor/canvas`. The relay bundles each file with esbuild and aliases that module to [`@thisismydesign/cursor-canvas-web`](https://github.com/thisismydesign/cursor-canvas-web), then mounts it with `mountCanvas` inside an iframe. A demo lives at `canvases/demo.canvas.tsx`.
 

@@ -103,6 +103,7 @@
     <aside id="canvas-panel" class="canvas-panel" hidden aria-label="Canvas preview">
       <div class="canvas-panel-bar">
         <span class="canvas-panel-title">Canvas</span>
+        <span id="canvas-preview-chip" class="canvas-preview-chip" hidden></span>
         <select id="canvas-select" class="canvas-select" aria-label="Choose canvas"></select>
         <button type="button" id="canvas-refresh" class="canvas-icon-btn" aria-label="Refresh canvas list" title="Refresh list">&#8635;</button>
         <button type="button" id="canvas-close" class="canvas-icon-btn" aria-label="Close canvas panel" title="Close">&times;</button>
@@ -112,7 +113,7 @@
         <p>No canvas open</p>
         <p class="hint">Choose a <code>.canvas.tsx</code> file, or open one in Cursor.</p>
       </div>
-      <iframe id="canvas-frame" class="canvas-frame" title="Canvas preview" hidden></iframe>
+      <iframe id="canvas-frame" class="canvas-frame" title="Canvas preview" sandbox="allow-scripts" referrerpolicy="no-referrer" hidden></iframe>
     </aside>
     </div>
 

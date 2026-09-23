@@ -523,4 +523,68 @@ describe('web: canvas panel', () => {
     env.mockSocket.fire('canvas:update', snapshot);
     assert.equal(panel.hidden, true, 'dismissed detection should not reopen the panel');
   });
+
+  it('sandboxes the canvas frame on an opaque origin', () => {
+    const frame = env.document.getElementById('canvas-frame') as HTMLIFrameElement;
+    const sandbox = frame.getAttribute('sandbox') || '';
+    assert.equal(sandbox, 'allow-scripts');
+    assert.equal(frame.getAttribute('referrerpolicy'), 'no-referrer');
+    assert.doesNotMatch(sandbox, /allow-same-origin/);
+    assert.doesNotMatch(sandbox, /allow-top-navigation/);
+  });
+
+  it('does not auto-open on a narrow viewport, but the button still opens it', () => {
+    env.window.matchMedia = ((query: string) => ({
+      matches: query.includes('max-width: 767px'),
+      media: query,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent() { return false; },
+    })) as typeof env.window.matchMedia;
+
+    const panel = env.document.getElementById('canvas-panel') as HTMLElement;
+    const id = 'abc12345abc12345abcd';
+    env.mockSocket.fire('canvas:update', {
+      canvases: [{
+        id,
+        fileName: 'demo.canvas.tsx',
+        relativePath: 'demo.canvas.tsx',
+        rootLabel: 'canvases',
+        displayName: 'demo.canvas.tsx',
+        mtimeMs: 10,
+      }],
+      activeId: id,
+      detectedName: 'demo.canvas.tsx',
+      previewSource: null,
+    });
+    assert.equal(panel.hidden, true);
+    (env.document.getElementById('btn-canvas') as HTMLButtonElement).click();
+    assert.equal(panel.hidden, false);
+    const select = env.document.getElementById('canvas-select') as HTMLSelectElement;
+    assert.equal(select.value, id);
+  });
+
+  it('shows when the preview is the prebuilt demo', () => {
+    const id = 'abc12345abc12345abcd';
+    env.mockSocket.fire('canvas:update', {
+      canvases: [{
+        id,
+        fileName: 'demo.canvas.tsx',
+        relativePath: 'demo.canvas.tsx',
+        rootLabel: 'canvases',
+        displayName: 'demo.canvas.tsx',
+        mtimeMs: 10,
+      }],
+      activeId: id,
+      detectedName: 'demo.canvas.tsx',
+      previewSource: 'prebuilt',
+    });
+    const chip = env.document.getElementById('canvas-preview-chip') as HTMLElement;
+    const status = env.document.getElementById('canvas-status') as HTMLElement;
+    assert.equal(chip.hidden, false);
+    assert.equal(chip.textContent, 'Prebuilt demo — live bundle failed');
+    assert.equal(status.textContent, 'Prebuilt demo — live bundle failed');
+  });
 });

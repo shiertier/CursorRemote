@@ -10,7 +10,12 @@ import type { StateManager } from './state-manager.js';
 import type { CommandExecutor } from './command-executor.js';
 import type { CDPBridge } from './cdp-bridge.js';
 import { CanvasService } from './canvas-service.js';
-import { renderCanvasDocument, resolveMantineStylesheets } from './canvas-bundle.js';
+import {
+  CANVAS_DOCUMENT_CSP,
+  readCanvasDocumentStyles,
+  renderCanvasDocument,
+  resolveMantineStylesheets,
+} from './canvas-bundle.js';
 import { markdownToWebHtml, readPlanFile } from './plan-files.js';
 import {
   WEBAPP_SESSION_COOKIE,
@@ -252,25 +257,33 @@ export class Relay {
       const id = routeParam(req.params.id);
       const entry = isSafeCanvasId(id) ? this.canvasService.getEntry(id) : undefined;
       if (!entry) {
-        res.status(404).type('html').send(renderCanvasDocument({
+        this.sendCanvasDocument(res, 404, renderCanvasDocument({
           title: 'Canvas',
           error: 'Canvas not found',
         }));
         return;
       }
-      await this.canvasService.bundle(id);
-      res.setHeader('Cache-Control', 'no-store');
-      res.type('html').send(renderCanvasDocument({
+      const script = await this.canvasService.bundle(id);
+      this.sendCanvasDocument(res, 200, renderCanvasDocument({
         title: entry.displayName,
-        scriptUrl: `/canvas/bundle/${encodeURIComponent(id)}?v=${Math.round(entry.mtimeMs)}`,
+        script,
+        styles: readCanvasDocumentStyles(),
       }));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[canvas] Failed to render view: ${message}`);
       if (!res.headersSent) {
-        res.status(500).type('html').send(renderCanvasDocument({ title: 'Canvas', error: message }));
+        this.sendCanvasDocument(res, 500, renderCanvasDocument({ title: 'Canvas', error: message }));
       }
     }
+  }
+
+  private sendCanvasDocument(res: express.Response, status: number, html: string): void {
+    res.setHeader('Content-Security-Policy', CANVAS_DOCUMENT_CSP);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.status(status).type('html').send(html);
   }
 
   private async serveCanvasBundle(req: express.Request, res: express.Response): Promise<void> {

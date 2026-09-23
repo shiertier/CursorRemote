@@ -1924,16 +1924,17 @@
     const $canvasRefresh = document.getElementById('canvas-refresh');
     const $canvasClose = document.getElementById('canvas-close');
     const $canvasStatus = document.getElementById('canvas-status');
+    const $canvasChip = document.getElementById('canvas-preview-chip');
     const $canvasEmpty = document.getElementById('canvas-empty');
     const $canvasFrame = document.getElementById('canvas-frame');
-    if (!$appEl || !$panel || !$resizer || !$btnCanvas || !$canvasSelect || !$canvasRefresh || !$canvasClose || !$canvasStatus || !$canvasEmpty || !$canvasFrame) {
+    if (!$appEl || !$panel || !$resizer || !$btnCanvas || !$canvasSelect || !$canvasRefresh || !$canvasClose || !$canvasStatus || !$canvasChip || !$canvasEmpty || !$canvasFrame) {
       return;
     }
 
     const WIDTH_KEY = 'cr-canvas-width';
     const ID_KEY = 'cr-canvas-id';
     const DISMISS_KEY = 'cr-canvas-dismissed';
-    let canvasSnapshot = { canvases: [], activeId: null, detectedName: null };
+    let canvasSnapshot = { canvases: [], activeId: null, detectedName: null, previewSource: null };
     let dismissedActiveId = localStorage.getItem(DISMISS_KEY);
     let lastAutoId = null;
     let loadedKey = '';
@@ -1963,7 +1964,25 @@
       return (canvasSnapshot.canvases || []).find((canvas) => canvas.id === id) || null;
     }
 
+    function isNarrowViewport() {
+      if (typeof window.matchMedia !== 'function') return false;
+      return window.matchMedia('(max-width: 767px)').matches;
+    }
+
+    const PREBUILT_LABEL = 'Prebuilt demo — live bundle failed';
+
+    function renderPreviewChip() {
+      const prebuilt = canvasSnapshot.previewSource === 'prebuilt';
+      $canvasChip.hidden = !prebuilt;
+      $canvasChip.textContent = prebuilt ? PREBUILT_LABEL : '';
+    }
+
     function renderCanvasStatus() {
+      renderPreviewChip();
+      if (canvasSnapshot.previewSource === 'prebuilt') {
+        $canvasStatus.textContent = PREBUILT_LABEL;
+        return;
+      }
       if (canvasRendering) return;
       const detected = canvasSnapshot.detectedName;
       const active = canvasSnapshot.activeId;
@@ -2023,7 +2042,9 @@
       }
       loadedKey = key;
       canvasRendering = true;
-      $canvasStatus.textContent = 'Rendering ' + canvas.displayName + '…';
+      $canvasStatus.textContent = canvasSnapshot.previewSource === 'prebuilt'
+        ? 'Prebuilt demo — live bundle failed'
+        : 'Rendering ' + canvas.displayName + '…';
       $canvasFrame.src = '/canvas/view/' + encodeURIComponent(id) + '?v=' + Math.round(canvas.mtimeMs);
     }
 
@@ -2056,7 +2077,9 @@
       renderCanvasStatus();
       if (canvasSnapshot.activeId && canvasSnapshot.activeId !== lastAutoId) {
         lastAutoId = canvasSnapshot.activeId;
-        if (canvasSnapshot.activeId !== dismissedActiveId) openCanvasPanel(canvasSnapshot.activeId);
+        if (canvasSnapshot.activeId !== dismissedActiveId && !isNarrowViewport()) {
+          openCanvasPanel(canvasSnapshot.activeId);
+        }
       } else if (isCanvasOpen() && selectedId) {
         loadCanvasFrame(selectedId);
       }

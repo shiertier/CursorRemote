@@ -165,6 +165,16 @@ function listCanvasFiles(dir: string, depth = 0): string[] {
   return out;
 }
 
+/** Directory that was scanned to produce this catalog entry. */
+export function canvasRootDir(entry: Pick<CanvasEntry, 'absolutePath' | 'relativePath'>): string {
+  const suffix = entry.relativePath.split('/').join(sep);
+  if (suffix && entry.absolutePath.endsWith(suffix)) {
+    const cut = entry.absolutePath.slice(0, -suffix.length).replace(/[\\/]+$/, '');
+    if (cut) return cut;
+  }
+  return dirname(entry.absolutePath);
+}
+
 function isInside(root: string, target: string): boolean {
   const rel = relative(root, target);
   if (rel === '') return true;

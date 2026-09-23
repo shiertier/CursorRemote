@@ -6,7 +6,7 @@ const demo = resolve('canvases/demo.canvas.tsx');
 const outDir = resolve('dist/client/prebuilt');
 mkdirSync(outDir, { recursive: true });
 
-const code = await bundleCanvas(demo);
+const code = await bundleCanvas(demo, resolve('canvases'));
 writeFileSync(resolve(outDir, 'demo-canvas.js'), code);
 
 const styles = resolveMantineStylesheets();

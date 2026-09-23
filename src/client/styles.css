@@ -1995,7 +1995,8 @@ header {
 .canvas-panel[hidden],
 .canvas-resizer[hidden],
 .canvas-frame[hidden],
-.canvas-empty[hidden] {
+.canvas-empty[hidden],
+.canvas-preview-chip[hidden] {
   display: none !important;
 }
 
@@ -2013,6 +2014,21 @@ header {
   font-weight: 600;
   color: var(--text-secondary);
   flex-shrink: 0;
+}
+
+.canvas-preview-chip {
+  font-size: 10px;
+  font-weight: 600;
+  color: #e8c27a;
+  background: rgba(232, 194, 122, 0.12);
+  border: 1px solid rgba(232, 194, 122, 0.35);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .canvas-select {
