@@ -22,6 +22,8 @@ The preview iframe is `sandbox="allow-scripts"` with no `allow-same-origin` and 
 
 `/canvas/view/:id` is still a same-site navigation, so a `WEBAPP_PASSWORD` session cookie is sent on that request and missing sessions redirect to `/login`. The document inlines its script and CSS, and its `Content-Security-Policy` is `default-src 'none'` with inline scripts and styles only (`connect-src 'none'`). The opaque frame makes no further requests to the relay. `GET /canvas/bundle/:id` and `/canvas-assets/*` stay behind the same session check for direct fetches; the iframe does not use them.
 
+Chrome blocks `localStorage` in this sandbox. The document installs an in-memory `localStorage` and `sessionStorage` before the bundle so `useCanvasState` and Mantine can mount. That storage lasts for the life of the preview document and is not the parent page's storage.
+
 A blob URL created by the parent page would stay on the parent's origin, so the preview is not loaded that way.
 
 ## Import allowlist

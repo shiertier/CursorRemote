@@ -32,8 +32,9 @@ describe('canvas bundle', () => {
     assert.match(html, /connect-src 'none'/);
     assert.doesNotMatch(html, /\/canvas\/bundle/);
     assert.doesNotMatch(html, /\/canvas-assets\//);
-    assert.equal(html.match(/<\/script>/gi)?.length, 1);
+    assert.equal(html.match(/<\/script>/gi)?.length, 2);
     assert.equal(html.match(/<\/style>/gi)?.length, 2);
+    assert.match(html, /__cursor_remote_probe/);
     assert.match(html, /<\\\/script><script>window\.__pwn/);
     assert.match(html, /<\\\/style><link/);
   });

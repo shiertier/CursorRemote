@@ -293,7 +293,9 @@ export function renderCanvasDocument(options: {
   const body = options.error
     ? `<pre id="boot-error">${escapeHtml(options.error)}</pre>`
     : `<div id="root"></div>${
-      options.script ? `<script>${neutralizeInlineScript(options.script)}</script>` : ''
+      options.script
+        ? `<script>${STORAGE_SHIM}</script><script>${neutralizeInlineScript(options.script)}</script>`
+        : ''
     }`;
   return `<!DOCTYPE html>
 <html lang="en">
@@ -319,6 +321,40 @@ ${body}
 </body>
 </html>`;
 }
+
+const STORAGE_SHIM = `(function () {
+  function memoryStorage() {
+    var data = Object.create(null);
+    return {
+      getItem: function (key) {
+        var name = String(key);
+        return Object.prototype.hasOwnProperty.call(data, name) ? data[name] : null;
+      },
+      setItem: function (key, value) { data[String(key)] = String(value); },
+      removeItem: function (key) { delete data[String(key)]; },
+      clear: function () {
+        Object.keys(data).forEach(function (key) { delete data[key]; });
+      },
+      key: function (index) { return Object.keys(data)[index] || null; },
+      get length() { return Object.keys(data).length; },
+    };
+  }
+  function install(name) {
+    var storage = memoryStorage();
+    try {
+      window[name].getItem('__cursor_remote_probe');
+    } catch (err) {
+      try {
+        Object.defineProperty(window, name, {
+          configurable: true,
+          get: function () { return storage; },
+        });
+      } catch (defineErr) {}
+    }
+  }
+  install('localStorage');
+  install('sessionStorage');
+})();`;
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (ch) => {
