@@ -27,6 +27,9 @@ async function main() {
     format: 'esm',
     entryPoints: ['src/server/index.ts'],
     outfile: 'dist/server/bundle.mjs',
+    // Canvas preview bundles user TSX with esbuild at runtime. Keep that package
+    // external so the extension bundle does not try to inline esbuild's binary.
+    external: ['esbuild'],
     banner: { js: [
       "import { createRequire as __cr } from 'module';",
       "import { fileURLToPath as __fu } from 'url';",

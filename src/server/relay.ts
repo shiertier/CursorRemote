@@ -9,6 +9,8 @@ import type { ServerConfig, CursorState, CommandPayload, CommandResult } from '.
 import type { StateManager } from './state-manager.js';
 import type { CommandExecutor } from './command-executor.js';
 import type { CDPBridge } from './cdp-bridge.js';
+import { CanvasService } from './canvas-service.js';
+import { renderCanvasDocument, resolveMantineStylesheets } from './canvas-bundle.js';
 import { markdownToWebHtml, readPlanFile } from './plan-files.js';
 import {
   WEBAPP_SESSION_COOKIE,
@@ -118,6 +120,7 @@ export class Relay {
 
   private sessionStore: WebappSessionStore;
   private loginAttempts = new Map<string, RateLimitEntry>();
+  private canvasService: CanvasService;
 
   /** Max-Age for session cookie (30 days), aligned with typical “stay signed in” expectation. */
   private static readonly SESSION_COOKIE_MAX_AGE_SEC = 30 * 24 * 60 * 60;
@@ -130,12 +133,14 @@ export class Relay {
     config: ServerConfig,
     stateManager: StateManager,
     commandExecutor: CommandExecutor,
-    cdpBridge: CDPBridge
+    cdpBridge: CDPBridge,
+    canvasService: CanvasService,
   ) {
     this.config = config;
     this.stateManager = stateManager;
     this.commandExecutor = commandExecutor;
     this.cdpBridge = cdpBridge;
+    this.canvasService = canvasService;
     this.sessionStore = createWebappSessionStore(config.dataDir);
 
     this.app = express();
@@ -152,6 +157,9 @@ export class Relay {
     this.setupRoutes();
     this.setupSocketHandlers();
     this.setupStateForwarding();
+    this.canvasService.on('update', (snapshot) => {
+      this.io.emit('canvas:update', snapshot);
+    });
 
     if (this.authEnabled) {
       console.log('[relay] Web app password protection enabled');
@@ -225,6 +233,63 @@ export class Relay {
     );
     if (fromCookie && this.sessionStore.has(fromCookie)) return fromCookie;
     return undefined;
+  }
+
+  private denyCanvas(req: express.Request, res: express.Response): boolean {
+    if (!this.authEnabled) return false;
+    if (this.resolveHttpSession(req)) return false;
+    if (req.path.startsWith('/canvas/view')) {
+      res.redirect('/login');
+    } else {
+      res.status(401).json({ error: 'Unauthorized' });
+    }
+    return true;
+  }
+
+  private async serveCanvasView(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      if (this.denyCanvas(req, res)) return;
+      const id = routeParam(req.params.id);
+      const entry = isSafeCanvasId(id) ? this.canvasService.getEntry(id) : undefined;
+      if (!entry) {
+        res.status(404).type('html').send(renderCanvasDocument({
+          title: 'Canvas',
+          error: 'Canvas not found',
+        }));
+        return;
+      }
+      await this.canvasService.bundle(id);
+      res.setHeader('Cache-Control', 'no-store');
+      res.type('html').send(renderCanvasDocument({
+        title: entry.displayName,
+        scriptUrl: `/canvas/bundle/${encodeURIComponent(id)}?v=${Math.round(entry.mtimeMs)}`,
+      }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[canvas] Failed to render view: ${message}`);
+      if (!res.headersSent) {
+        res.status(500).type('html').send(renderCanvasDocument({ title: 'Canvas', error: message }));
+      }
+    }
+  }
+
+  private async serveCanvasBundle(req: express.Request, res: express.Response): Promise<void> {
+    try {
+      if (this.denyCanvas(req, res)) return;
+      const id = routeParam(req.params.id);
+      if (!isSafeCanvasId(id) || !this.canvasService.getEntry(id)) {
+        res.status(404).type('text/plain').send('Canvas not found');
+        return;
+      }
+      const code = await this.canvasService.bundle(id);
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.type('js').send(code);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[canvas] Failed to bundle: ${message}`);
+      if (!res.headersSent) res.status(500).type('text/plain').send(message);
+    }
   }
 
   private setupRoutes(): void {
@@ -331,6 +396,46 @@ export class Relay {
       });
     });
 
+    this.app.get('/api/canvases', (req, res) => {
+      if (this.denyCanvas(req, res)) return;
+      res.json(this.canvasService.snapshot());
+    });
+
+    this.app.post('/api/canvases/refresh', (req, res) => {
+      if (this.denyCanvas(req, res)) return;
+      res.json(this.canvasService.refresh());
+    });
+
+    this.app.get('/canvas-assets/mantine-core.css', (req, res) => {
+      if (this.denyCanvas(req, res)) return;
+      const styles = resolveMantineStylesheets();
+      if (!styles) {
+        res.status(404).type('text/plain').send('Mantine core stylesheet not found');
+        return;
+      }
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.type('text/css').sendFile(styles.core);
+    });
+
+    this.app.get('/canvas-assets/mantine-charts.css', (req, res) => {
+      if (this.denyCanvas(req, res)) return;
+      const styles = resolveMantineStylesheets();
+      if (!styles) {
+        res.status(404).type('text/plain').send('Mantine charts stylesheet not found');
+        return;
+      }
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.type('text/css').sendFile(styles.charts);
+    });
+
+    this.app.get('/canvas/view/:id', (req, res) => {
+      void this.serveCanvasView(req, res);
+    });
+
+    this.app.get('/canvas/bundle/:id', (req, res) => {
+      void this.serveCanvasBundle(req, res);
+    });
+
     const cacheBust = Date.now().toString(36);
     this.app.get('/', (_req, res) => {
       const htmlPath = join(clientDir, 'index.html');
@@ -393,6 +498,11 @@ export class Relay {
       console.log(`[relay] Client connected: ${socket.id}`);
 
       socket.emit('state:full', this.stateManager.getCurrentState());
+      socket.emit('canvas:update', this.canvasService.snapshot());
+
+      socket.on('canvas:refresh', () => {
+        this.canvasService.refresh();
+      });
 
       socket.on('command:send_message', async (payload: CommandPayload) => {
         if (!payload.commandId || !payload.text) {
@@ -658,4 +768,13 @@ export class Relay {
       this.io.emit('connection:status', { connected });
     });
   }
+}
+
+function routeParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? '';
+  return value ?? '';
+}
+
+function isSafeCanvasId(id: string): boolean {
+  return /^[A-Za-z0-9_-]{8,32}$/.test(id);
 }

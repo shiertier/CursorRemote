@@ -227,7 +227,7 @@
   },
   "scripts": {
     "dev": "mkdir -p temp data && tsx scripts/dev-wrapper.ts",
-    "build": "tsc && rm -rf dist/client && cp -r src/client dist/client && cp node_modules/socket.io/client-dist/socket.io.min.js dist/client/vendor-socket.io.min.js && cp node_modules/socket.io/client-dist/socket.io.min.js.map dist/client/vendor-socket.io.min.js.map",
+    "build": "tsc && rm -rf dist/client && cp -r src/client dist/client && cp node_modules/socket.io/client-dist/socket.io.min.js dist/client/vendor-socket.io.min.js && cp node_modules/socket.io/client-dist/socket.io.min.js.map dist/client/vendor-socket.io.min.js.map && tsx scripts/prebuild-demo-canvas.ts",
     "build:ext": "node extension/esbuild.js --production",
     "watch:ext": "node extension/esbuild.js --watch",
     "package": "tsx scripts/bump-build.ts && mkdir -p releases && npx @vscode/vsce package --no-dependencies --out releases/ && tsx scripts/verify-vsix.ts",
@@ -244,10 +244,17 @@
   },
   "dependencies": {
     "@grammyjs/auto-retry": "^2.0.2",
+    "@mantine/charts": "^7.17.8",
+    "@mantine/core": "^7.17.8",
+    "@thisismydesign/cursor-canvas-web": "^0.3.0",
     "dotenv": "^17.3.1",
+    "esbuild": "^0.24.2",
     "express": "^4.21.0",
     "grammy": "^1.41.1",
     "node-html-parser": "^7.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.15.4",
     "socket.io": "^4.8.0",
     "ws": "^8.18.0"
   },
@@ -258,7 +265,6 @@
     "@types/vscode": "^1.85.0",
     "@types/ws": "^8.5.0",
     "@vscode/vsce": "^3.0.0",
-    "esbuild": "^0.24.0",
     "jsdom": "^29.0.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"

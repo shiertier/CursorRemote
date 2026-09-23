@@ -474,3 +474,53 @@ describe('web: questionnaire widget', () => {
     assert.ok(questions[1].classList.contains('questionnaire-question-active'));
   });
 });
+
+describe('web: canvas panel', () => {
+  let env: ReturnType<typeof createTestEnv>;
+
+  beforeEach(() => {
+    env = createTestEnv();
+  });
+
+  it('starts closed and toggles from the header button', () => {
+    const panel = env.document.getElementById('canvas-panel') as HTMLElement;
+    const button = env.document.getElementById('btn-canvas') as HTMLButtonElement;
+    assert.equal(panel.hidden, true);
+    assert.equal(button.getAttribute('aria-pressed'), 'false');
+    button.click();
+    assert.equal(panel.hidden, false);
+    assert.equal(button.getAttribute('aria-pressed'), 'true');
+    assert.ok(env.document.getElementById('app')!.classList.contains('canvas-open'));
+    button.click();
+    assert.equal(panel.hidden, true);
+    assert.equal(button.getAttribute('aria-pressed'), 'false');
+  });
+
+  it('auto-opens for a newly detected canvas and stays closed after dismiss', () => {
+    const panel = env.document.getElementById('canvas-panel') as HTMLElement;
+    const id = 'abc12345abc12345abcd';
+    const snapshot = {
+      canvases: [{
+        id,
+        fileName: 'demo.canvas.tsx',
+        relativePath: 'demo.canvas.tsx',
+        rootLabel: 'canvases',
+        displayName: 'demo.canvas.tsx',
+        mtimeMs: 10,
+      }],
+      activeId: id,
+      detectedName: 'demo.canvas.tsx',
+    };
+    env.mockSocket.fire('canvas:update', snapshot);
+    assert.equal(panel.hidden, false);
+    const frame = env.document.getElementById('canvas-frame') as HTMLIFrameElement;
+    assert.match(frame.getAttribute('src') || '', new RegExp(`/canvas/view/${id}`));
+
+    (env.document.getElementById('canvas-close') as HTMLButtonElement).click();
+    assert.equal(panel.hidden, true);
+
+    env.mockSocket.fire('canvas:update', { ...snapshot, activeId: null, detectedName: null });
+    env.mockSocket.fire('canvas:update', snapshot);
+    assert.equal(panel.hidden, true, 'dismissed detection should not reopen the panel');
+  });
+});

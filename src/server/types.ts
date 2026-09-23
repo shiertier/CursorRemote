@@ -346,6 +346,12 @@ export interface ServerConfig {
   webappPassword: string;
   windowTitleQualifier: boolean;
   dataDir: string;
+  /** Extra directories scanned for .canvas.tsx files (comma-separated CANVAS_DIRS). */
+  canvasDirs: string[];
+  /** Scan Cursor project canvas folders under the user profile. */
+  canvasScanCursor: boolean;
+  /** How often to re-scan canvas files and probe Cursor for an open canvas tab. */
+  canvasPollMs: number;
   telegram: TelegramConfig;
 }
 
