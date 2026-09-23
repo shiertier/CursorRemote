@@ -1910,16 +1910,199 @@ header {
 /* --- Desktop --- */
 
 @media (min-width: 768px) {
-  #messages {
+  #app:not(.canvas-open) #messages {
     padding-left: max(16px, calc((100% - 800px) / 2));
     padding-right: max(16px, calc((100% - 800px) / 2));
   }
   .human-bubble { max-width: 75%; }
   .btn-approve, .btn-reject { height: 44px; }
-  .approval-bar,
-  .questionnaire-bar,
-  #input-bar {
+  #app:not(.canvas-open) .approval-bar,
+  #app:not(.canvas-open) .questionnaire-bar,
+  #app:not(.canvas-open) #input-bar {
     padding-left: max(14px, calc((100% - 800px) / 2));
     padding-right: max(14px, calc((100% - 800px) / 2));
+  }
+}
+
+/* --- Canvas panel --- */
+
+#workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+#chat-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.header-canvas-btn {
+  appearance: none;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.header-canvas-btn:hover,
+.header-canvas-btn.active {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.header-canvas-btn.active {
+  border-color: rgba(55, 148, 255, 0.55);
+  color: var(--accent-blue);
+}
+
+.canvas-resizer {
+  width: 6px;
+  cursor: col-resize;
+  flex-shrink: 0;
+  background: transparent;
+  touch-action: none;
+}
+
+.canvas-resizer:hover,
+.canvas-resizer:focus-visible {
+  background: rgba(55, 148, 255, 0.45);
+  outline: none;
+}
+
+.canvas-panel {
+  width: min(440px, 46vw);
+  min-width: 280px;
+  max-width: 72vw;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-color);
+  min-height: 0;
+}
+
+.canvas-panel[hidden],
+.canvas-resizer[hidden],
+.canvas-frame[hidden],
+.canvas-empty[hidden],
+.canvas-preview-chip[hidden] {
+  display: none !important;
+}
+
+.canvas-panel-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.canvas-panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.canvas-preview-chip {
+  font-size: 10px;
+  font-weight: 600;
+  color: #e8c27a;
+  background: rgba(232, 194, 122, 0.12);
+  border: 1px solid rgba(232, 194, 122, 0.35);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.canvas-select {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.canvas-icon-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.canvas-icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.canvas-status {
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.canvas-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 24px 16px;
+  color: var(--text-tertiary);
+}
+
+.canvas-empty code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.canvas-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #181818;
+  min-height: 0;
+}
+
+@media (max-width: 767px) {
+  #workspace { position: relative; }
+  #canvas-resizer { display: none !important; }
+  .canvas-panel:not([hidden]) {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    max-width: none;
+    min-width: 0;
+    z-index: 30;
   }
 }

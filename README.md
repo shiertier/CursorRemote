@@ -21,6 +21,7 @@ Remote control for your local Cursor AI agent — monitor sessions, approve step
 - **Auto-Topic Creation** -- new chat tabs automatically get a Telegram topic created
 - **VS Code Extension** -- integrated sidebar with server status, start/stop controls, setup wizard, and settings
 - **Persistent State** -- messages, topics, sync, and auth all survive server restarts
+- **Canvas panel** -- resizable right-hand preview for Cursor `.canvas.tsx` files, rendered with the [`cursor-canvas-web`](https://github.com/thisismydesign/cursor-canvas-web) shim
 
 ## How It Works
 
@@ -193,6 +194,9 @@ Edit `.env` to configure the server. For Telegram, set `TELEGRAM_ENABLED=true` a
 | `LICENSE_KEY` | -- | License key via env (overrides file) |
 | `DATA_DIR` | `./data` | Data directory for persistent state |
 | `LOG_FORMAT` | `text` | Set to `json` for structured log lines |
+| `CANVAS_DIRS` | -- | Comma-separated extra folders of `*.canvas.tsx` files |
+| `CANVAS_SCAN_CURSOR` | `true` | Also scan `~/.cursor/projects/*/canvases` |
+| `CANVAS_POLL_MS` | `2000` | Canvas rescan and open-tab probe interval |
 
 ### Production
 
@@ -204,6 +208,22 @@ npm start
 Ensure `data/license.key` exists before running `npm start` (no interactive prompt in production mode).
 
 > **WSL2 users**: see [Setup Guide](docs/setup-guide.md) for port forwarding details.
+
+---
+
+## Canvas panel
+
+The web client can show a Cursor canvas on the right, next to the chat. The panel is closed until you press **Canvas**. On a wide layout it also opens when the relay notices a `*.canvas.tsx` editor tab. The preview runs in a sandboxed iframe that cannot reach the parent page.
+
+Canvases keep importing `cursor/canvas`. The relay bundles each file with esbuild and aliases that module to [`@thisismydesign/cursor-canvas-web`](https://github.com/thisismydesign/cursor-canvas-web), then mounts it with `mountCanvas` inside an iframe. A demo lives at `canvases/demo.canvas.tsx`.
+
+```bash
+npm install
+npm run dev
+# open http://127.0.0.1:3000 and press Canvas
+```
+
+Set `CANVAS_DIRS` to scan more folders. Detection of the tab open in Cursor is best-effort DOM text matching and only runs while CDP is connected; pick a file from the list when it does not match. Details: [Canvas panel](docs/canvas-panel.md).
 
 ---
 
@@ -280,3 +300,4 @@ Plain text in any topic is sent as a prompt to the mapped Cursor agent.
 - [Telegram PRD](docs/telegram_prd.md) -- message formats, commands
 - [Telegram Architecture](docs/telegram_architecture.md) -- multi-window, queues, lifecycle
 - [Extension PRD](docs/extension_prd.md) -- VS Code extension features, settings, build
+- [Canvas panel](docs/canvas-panel.md) -- right-hand `.canvas.tsx` preview via cursor-canvas-web

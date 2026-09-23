@@ -7,6 +7,7 @@ import { CommandExecutor } from './command-executor.js';
 import { StateManager } from './state-manager.js';
 import { WindowMonitor } from './window-monitor.js';
 import { Relay } from './relay.js';
+import { CanvasService } from './canvas-service.js';
 import type { Transport } from './transports/types.js';
 import { TelegramTransport } from './transports/telegram/index.js';
 import { RawTelegramTransport } from './transports/telegram-raw/index.js';
@@ -119,8 +120,10 @@ async function main(): Promise<void> {
 
   const transports: Transport[] = [];
 
-  const relay = new Relay(config, stateManager, commandExecutor, cdpBridge);
+  const canvasService = new CanvasService(config, cdpBridge);
+  const relay = new Relay(config, stateManager, commandExecutor, cdpBridge, canvasService);
   await relay.start();
+  canvasService.start();
 
   console.log('[main] Connecting to Cursor IDE...');
   await cdpBridge.connect();
@@ -158,6 +161,7 @@ async function main(): Promise<void> {
     console.log('\n[main] Shutting down...');
     windowMonitor.stop();
     extractor.stop();
+    canvasService.stop();
     for (const transport of transports) {
       await transport.stop();
     }

@@ -1913,6 +1913,259 @@
     }, 3000);
   }
 
+  setupCanvasPanel();
+
+  function setupCanvasPanel() {
+    const $appEl = document.getElementById('app');
+    const $panel = document.getElementById('canvas-panel');
+    const $resizer = document.getElementById('canvas-resizer');
+    const $btnCanvas = document.getElementById('btn-canvas');
+    const $canvasSelect = document.getElementById('canvas-select');
+    const $canvasRefresh = document.getElementById('canvas-refresh');
+    const $canvasClose = document.getElementById('canvas-close');
+    const $canvasStatus = document.getElementById('canvas-status');
+    const $canvasChip = document.getElementById('canvas-preview-chip');
+    const $canvasEmpty = document.getElementById('canvas-empty');
+    const $canvasFrame = document.getElementById('canvas-frame');
+    if (!$appEl || !$panel || !$resizer || !$btnCanvas || !$canvasSelect || !$canvasRefresh || !$canvasClose || !$canvasStatus || !$canvasChip || !$canvasEmpty || !$canvasFrame) {
+      return;
+    }
+
+    const WIDTH_KEY = 'cr-canvas-width';
+    const ID_KEY = 'cr-canvas-id';
+    const DISMISS_KEY = 'cr-canvas-dismissed';
+    let canvasSnapshot = { canvases: [], activeId: null, detectedName: null, previewSource: null };
+    let dismissedActiveId = localStorage.getItem(DISMISS_KEY);
+    let lastAutoId = null;
+    let loadedKey = '';
+    let selectedId = localStorage.getItem(ID_KEY) || '';
+    let canvasRendering = false;
+
+    const savedWidth = parseInt(localStorage.getItem(WIDTH_KEY) || '', 10);
+    if (savedWidth >= 280) $panel.style.width = savedWidth + 'px';
+
+    const narrowQuery = typeof window.matchMedia === 'function'
+      ? window.matchMedia('(max-width: 767px)')
+      : { matches: false, addEventListener: function () {} };
+
+    function isCanvasOpen() {
+      return !$panel.hidden;
+    }
+
+    function setCanvasOpen(open) {
+      $panel.hidden = !open;
+      $resizer.hidden = !open || narrowQuery.matches;
+      $appEl.classList.toggle('canvas-open', open);
+      $btnCanvas.setAttribute('aria-pressed', open ? 'true' : 'false');
+      $btnCanvas.classList.toggle('active', open);
+    }
+
+    function findCanvas(id) {
+      return (canvasSnapshot.canvases || []).find((canvas) => canvas.id === id) || null;
+    }
+
+    function isNarrowViewport() {
+      if (typeof window.matchMedia !== 'function') return false;
+      return window.matchMedia('(max-width: 767px)').matches;
+    }
+
+    const PREBUILT_LABEL = 'Prebuilt demo — live bundle failed';
+
+    function renderPreviewChip() {
+      const prebuilt = canvasSnapshot.previewSource === 'prebuilt';
+      $canvasChip.hidden = !prebuilt;
+      $canvasChip.textContent = prebuilt ? PREBUILT_LABEL : '';
+    }
+
+    function renderCanvasStatus() {
+      renderPreviewChip();
+      if (canvasSnapshot.previewSource === 'prebuilt') {
+        $canvasStatus.textContent = PREBUILT_LABEL;
+        return;
+      }
+      if (canvasRendering) return;
+      const detected = canvasSnapshot.detectedName;
+      const active = canvasSnapshot.activeId;
+      if (active) {
+        const canvas = findCanvas(active);
+        $canvasStatus.textContent = 'Detected in Cursor: ' + (canvas ? canvas.displayName : detected);
+        return;
+      }
+      if (detected) {
+        const same = (canvasSnapshot.canvases || []).filter((canvas) => canvas.fileName === detected);
+        $canvasStatus.textContent = same.length > 1
+          ? 'Multiple files named ' + detected + ' — pick one'
+          : 'Cursor has ' + detected + ' open, but it is not in the scanned folders';
+        return;
+      }
+      $canvasStatus.textContent = (canvasSnapshot.canvases || []).length
+        ? 'Pick a .canvas.tsx file'
+        : 'No .canvas.tsx files found';
+    }
+
+    function renderCanvasSelect() {
+      const previous = $canvasSelect.value || selectedId;
+      $canvasSelect.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = (canvasSnapshot.canvases || []).length ? 'Select a canvas…' : 'No canvases found';
+      $canvasSelect.appendChild(placeholder);
+      (canvasSnapshot.canvases || []).forEach((canvas) => {
+        const opt = document.createElement('option');
+        opt.value = canvas.id;
+        opt.textContent = canvas.displayName;
+        $canvasSelect.appendChild(opt);
+      });
+      if (previous && findCanvas(previous)) $canvasSelect.value = previous;
+    }
+
+    function loadCanvasFrame(id) {
+      const canvas = findCanvas(id);
+      selectedId = id || '';
+      if (id) localStorage.setItem(ID_KEY, id);
+      if (!canvas) {
+        loadedKey = '';
+        canvasRendering = false;
+        $canvasFrame.hidden = true;
+        $canvasFrame.removeAttribute('src');
+        $canvasEmpty.hidden = false;
+        renderCanvasStatus();
+        return;
+      }
+      $canvasSelect.value = id;
+      const key = id + ':' + canvas.mtimeMs;
+      $canvasEmpty.hidden = true;
+      $canvasFrame.hidden = false;
+      if (loadedKey === key) {
+        renderCanvasStatus();
+        return;
+      }
+      loadedKey = key;
+      canvasRendering = true;
+      $canvasStatus.textContent = canvasSnapshot.previewSource === 'prebuilt'
+        ? 'Prebuilt demo — live bundle failed'
+        : 'Rendering ' + canvas.displayName + '…';
+      $canvasFrame.src = '/canvas/view/' + encodeURIComponent(id) + '?v=' + Math.round(canvas.mtimeMs);
+    }
+
+    $canvasFrame.addEventListener('load', () => {
+      canvasRendering = false;
+      if (isCanvasOpen()) renderCanvasStatus();
+    });
+
+    function openCanvasPanel(id) {
+      setCanvasOpen(true);
+      if (id && findCanvas(id)) loadCanvasFrame(id);
+      else if (selectedId && findCanvas(selectedId)) loadCanvasFrame(selectedId);
+      else if (canvasSnapshot.activeId) loadCanvasFrame(canvasSnapshot.activeId);
+      else if (canvasSnapshot.canvases && canvasSnapshot.canvases[0]) loadCanvasFrame(canvasSnapshot.canvases[0].id);
+      else loadCanvasFrame('');
+    }
+
+    function closeCanvasPanel() {
+      if (canvasSnapshot.activeId) {
+        dismissedActiveId = canvasSnapshot.activeId;
+        localStorage.setItem(DISMISS_KEY, canvasSnapshot.activeId);
+      }
+      setCanvasOpen(false);
+    }
+
+    function applyCanvasSnapshot(next) {
+      if (!next || !Array.isArray(next.canvases)) return;
+      canvasSnapshot = next;
+      renderCanvasSelect();
+      renderCanvasStatus();
+      if (canvasSnapshot.activeId && canvasSnapshot.activeId !== lastAutoId) {
+        lastAutoId = canvasSnapshot.activeId;
+        if (canvasSnapshot.activeId !== dismissedActiveId && !isNarrowViewport()) {
+          openCanvasPanel(canvasSnapshot.activeId);
+        }
+      } else if (isCanvasOpen() && selectedId) {
+        loadCanvasFrame(selectedId);
+      }
+      if (!canvasSnapshot.activeId) lastAutoId = null;
+    }
+
+    $btnCanvas.addEventListener('click', () => {
+      if (isCanvasOpen()) {
+        closeCanvasPanel();
+        return;
+      }
+      dismissedActiveId = null;
+      localStorage.removeItem(DISMISS_KEY);
+      openCanvasPanel(canvasSnapshot.activeId || selectedId || '');
+    });
+
+    $canvasClose.addEventListener('click', () => closeCanvasPanel());
+
+    $canvasRefresh.addEventListener('click', () => {
+      socket.emit('canvas:refresh');
+      fetchCanvasList();
+    });
+
+    $canvasSelect.addEventListener('change', () => {
+      if (!$canvasSelect.value) return;
+      dismissedActiveId = null;
+      localStorage.removeItem(DISMISS_KEY);
+      if (!isCanvasOpen()) setCanvasOpen(true);
+      loadCanvasFrame($canvasSelect.value);
+    });
+
+    $resizer.addEventListener('pointerdown', (startEvent) => {
+      if (startEvent.button !== undefined && startEvent.button !== 0) return;
+      startEvent.preventDefault();
+      const startX = startEvent.clientX;
+      const startW = $panel.getBoundingClientRect().width;
+      function move(ev) {
+        const max = Math.round(window.innerWidth * 0.72);
+        const next = Math.min(Math.max(Math.round(startW + (startX - ev.clientX)), 280), Math.max(280, max));
+        $panel.style.width = next + 'px';
+      }
+      function up() {
+        $resizer.removeEventListener('pointermove', move);
+        $resizer.removeEventListener('pointerup', up);
+        localStorage.setItem(WIDTH_KEY, String(Math.round($panel.getBoundingClientRect().width)));
+      }
+      $resizer.addEventListener('pointermove', move);
+      $resizer.addEventListener('pointerup', up);
+    });
+
+    $resizer.addEventListener('keydown', (event) => {
+      const cur = $panel.getBoundingClientRect().width;
+      let next = cur;
+      if (event.key === 'ArrowLeft') next = cur + 24;
+      else if (event.key === 'ArrowRight') next = cur - 24;
+      else return;
+      event.preventDefault();
+      const max = Math.round(window.innerWidth * 0.72);
+      next = Math.min(Math.max(Math.round(next), 280), Math.max(280, max));
+      $panel.style.width = next + 'px';
+      localStorage.setItem(WIDTH_KEY, String(next));
+    });
+
+    if (typeof narrowQuery.addEventListener === 'function') {
+      narrowQuery.addEventListener('change', () => {
+        if (isCanvasOpen()) $resizer.hidden = narrowQuery.matches;
+      });
+    }
+
+    async function fetchCanvasList() {
+      try {
+        const res = await fetch('/api/canvases', {
+          credentials: 'same-origin',
+          headers: getAuthHeaders(),
+        });
+        if (!res.ok) return;
+        applyCanvasSnapshot(await res.json());
+      } catch {
+        /* relay may be offline */
+      }
+    }
+
+    socket.on('canvas:update', applyCanvasSnapshot);
+    fetchCanvasList();
+  }
+
   } // end bootstrap
 
   init();

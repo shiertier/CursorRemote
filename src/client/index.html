@@ -17,10 +17,14 @@
         <span id="connection-text">Connecting...</span>
       </div>
       <div class="header-right">
+        <button type="button" id="btn-canvas" class="header-canvas-btn" aria-pressed="false" aria-controls="canvas-panel">Canvas</button>
         <span id="agent-status-icon"></span>
         <span id="agent-status-text">Idle</span>
       </div>
     </header>
+
+    <div id="workspace">
+    <div id="chat-column">
 
     <div id="composer-queue-bar" class="composer-queue-bar hidden" aria-live="polite">
       <div class="composer-queue-header">
@@ -93,6 +97,25 @@
         </button>
       </div>
     </footer>
+    </div>
+
+    <div id="canvas-resizer" class="canvas-resizer" hidden role="separator" aria-orientation="vertical" aria-label="Resize canvas panel" tabindex="0"></div>
+    <aside id="canvas-panel" class="canvas-panel" hidden aria-label="Canvas preview">
+      <div class="canvas-panel-bar">
+        <span class="canvas-panel-title">Canvas</span>
+        <span id="canvas-preview-chip" class="canvas-preview-chip" hidden></span>
+        <select id="canvas-select" class="canvas-select" aria-label="Choose canvas"></select>
+        <button type="button" id="canvas-refresh" class="canvas-icon-btn" aria-label="Refresh canvas list" title="Refresh list">&#8635;</button>
+        <button type="button" id="canvas-close" class="canvas-icon-btn" aria-label="Close canvas panel" title="Close">&times;</button>
+      </div>
+      <div id="canvas-status" class="canvas-status"></div>
+      <div id="canvas-empty" class="canvas-empty">
+        <p>No canvas open</p>
+        <p class="hint">Choose a <code>.canvas.tsx</code> file, or open one in Cursor.</p>
+      </div>
+      <iframe id="canvas-frame" class="canvas-frame" title="Canvas preview" sandbox="allow-scripts" referrerpolicy="no-referrer" hidden></iframe>
+    </aside>
+    </div>
 
     <div id="sheet-overlay" class="sheet-overlay hidden"></div>
     <div id="sheet-mode" class="bottom-sheet hidden">

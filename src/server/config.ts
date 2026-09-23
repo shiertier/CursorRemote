@@ -23,6 +23,9 @@ export function loadConfig(): ServerConfig {
     webappPassword: process.env.WEBAPP_PASSWORD ?? '',
     windowTitleQualifier: process.env.WINDOW_TITLE_QUALIFIER !== 'false',
     dataDir,
+    canvasDirs: parseCanvasDirs(process.env.CANVAS_DIRS),
+    canvasScanCursor: process.env.CANVAS_SCAN_CURSOR !== 'false',
+    canvasPollMs: parseCanvasPollMs(process.env.CANVAS_POLL_MS),
     telegram: {
       enabled: process.env.TELEGRAM_ENABLED === 'true',
       botToken: process.env.TELEGRAM_BOT_TOKEN ?? '',
@@ -41,6 +44,17 @@ export function loadSelectors(config: ServerConfig): SelectorConfig {
     console.warn(`[config] Could not load selectors from ${fullPath}, using defaults`);
     return getDefaultSelectors();
   }
+}
+
+function parseCanvasDirs(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw.split(',').map((part) => part.trim()).filter(Boolean);
+}
+
+function parseCanvasPollMs(raw: string | undefined): number {
+  const parsed = parseInt(raw ?? '2000', 10);
+  if (!Number.isFinite(parsed) || parsed < 500) return 2000;
+  return parsed;
 }
 
 function getDefaultSelectors(): SelectorConfig {
